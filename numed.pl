@@ -15,10 +15,22 @@ use warnings;
 use autodie;
 
 use Curses::UI;
-my $cui = new Curses::UI( -color_support => 1 );
+
+# ----------------------- VARIABLES SECTION --------------------------
+open my $file, "<", shift, or die "$!";
+
+my @buffor = <$file>;
+my $line = 0;
+my $mode = "NORMAL";
+
+# --------------------- USER INTERFACE SECTION -----------------------
+my $cui = new Curses::UI( 
+    -color_support => 1 
+);
 
 my @menu = (
-    { -label => 'File', 
+    { 
+        -label => 'File', 
         -submenu => [
             { 
                 -label => 'Exit      ^Q', 
@@ -28,17 +40,6 @@ my @menu = (
     },
 );
 
-sub exit_dialog()
-{
-    my $return = $cui->dialog(
-        -message   => "Do you really want to quit?",
-        -title     => "Are you sure???", 
-        -buttons   => ['yes', 'no']
-    );
-
-    exit(0) if $return;
-}
-
 my $menu = $cui->add(
     'menu','Menubar', 
     -menu => \@menu,
@@ -47,46 +48,50 @@ my $menu = $cui->add(
 
 my $win1 = $cui->add(
     'win1', 'Window',
-    -border => 1,
     -y    => 1,
     -bfg  => 'white',
 );
 
-$cui->set_binding(sub {$menu->focus()}, "\cX");
+my $texteditor = $win1->add("text", "TextEditor",
+    -text => "@buffor",
+    -pad => 1,
+);
+
+# ----------------------- KEYBINDINGS SECTION --------------------------
+$cui->set_binding( sub{ $menu->focus() }, "\cX");
 $cui->set_binding( \&exit_dialog , "\cQ");
 $cui->set_binding( sub{ exit 0 }, "\cC");
 $cui->set_binding( \&up , "8");
 $cui->set_binding( \&down , "2");
 
-open my $file, "<", shift, or die "$!";
+# ----------------------- PROCEDURES SECTION ---------------------------
+sub exit_dialog()
+{
+    my $return = $cui->dialog(
+        -message   => "Are you sure you want to discard unsaved changes?",
+        -title     => "Exit", 
+        -buttons   => ['yes', 'no']
+    );
 
-my @buffor = <$file>;
-my $line = 0;
-my $height = 20;
-
-my $texteditor = $win1->add("text", "TextEditor",
-    -text => "@buffor[$line..$line+$height]"
-);
+    exit(0) if $return;
+}
 
 sub up() 
 {
-    $line-- if $line;
-    $texteditor->text("@buffor[$line..$line+$height]");
+    if($mode eq "NORMAL"){
+        $line-- if $line;
+        $texteditor->text("@buffor[$line..$line+$texteditor->height()]");
+    }
 }
 
 sub down() 
 {
-    $line++ if $line+$height < scalar @buffor;
-    $texteditor->text("@buffor[$line..$line+$height]");
+    if($mode eq "NORMAL"){
+        $line++ if $line+$texteditor->height() < scalar @buffor;
+        $texteditor->text("@buffor[$line..$line+$texteditor->height()]");
+    }
 }
 
-#my $progressbar = $win1->add(
-#'myprogressbar', 'Progressbar',
-#-max       => 250,
-#-pos       => 42,
-#);
-
-#$progressbar->draw;
-
+# -------------------- START MAIN LOOP --------------------------
 $texteditor->focus();
 $cui->mainloop();
