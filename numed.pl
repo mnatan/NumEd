@@ -52,17 +52,29 @@ my $win1 = $cui->add(
     -bfg  => 'white',
 );
 
-my $texteditor = $win1->add("text", "TextEditor",
+my $indicator = $win1->add("indicator", "TextViewer",
+    -text => "$mode",
+    -x => $win1->width()-10,
+    -bfg => 'white',
+);
+my $textfield = $win1->add("textfield", "TextEditor",
     -text => "@buffor",
     -pad => 1,
+    -border => 1,
+    #-padtop => 2,
 );
 
 # ----------------------- KEYBINDINGS SECTION --------------------------
+
+# KEYPAD
+$cui->set_binding( \&toggle_mode , "/");
+$cui->set_binding( \&up , "8");
+$cui->set_binding( \&down , "2");
+
+# OTHER
 $cui->set_binding( sub{ $menu->focus() }, "\cX");
 $cui->set_binding( \&exit_dialog , "\cQ");
 $cui->set_binding( sub{ exit 0 }, "\cC");
-$cui->set_binding( \&up , "8");
-$cui->set_binding( \&down , "2");
 
 # ----------------------- PROCEDURES SECTION ---------------------------
 sub exit_dialog()
@@ -76,22 +88,38 @@ sub exit_dialog()
     exit(0) if $return;
 }
 
+sub toggle_mode() 
+{
+    if ($mode eq "NORMAL") {
+        $mode = "INPUT";
+    } else {
+        $mode = "NORMAL";
+    }
+    update_indicator();
+}
+
+sub update_indicator()
+{
+    $indicator->text($mode);
+    $textfield->focus();
+}
+
 sub up() 
 {
     if($mode eq "NORMAL"){
         $line-- if $line;
-        $texteditor->text("@buffor[$line..$line+$texteditor->height()]");
+        $textfield->text("@buffor[$line..$line+$textfield->height()]");
     }
 }
 
 sub down() 
 {
     if($mode eq "NORMAL"){
-        $line++ if $line+$texteditor->height() < scalar @buffor;
-        $texteditor->text("@buffor[$line..$line+$texteditor->height()]");
+        $line++ if $line+$textfield->height() < scalar @buffor;
+        $textfield->text("@buffor[$line..$line+$textfield->height()]");
     }
 }
 
 # -------------------- START MAIN LOOP --------------------------
-$texteditor->focus();
+$textfield->focus();
 $cui->mainloop();
