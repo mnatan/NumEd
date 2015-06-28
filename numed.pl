@@ -79,6 +79,9 @@ $cui->set_binding( \&one , "1");
 $cui->set_binding( \&three , "3");
 $cui->set_binding( \&seven , "7");
 $cui->set_binding( \&nine , "9");
+$cui->set_binding( \&five , "5");
+$cui->set_binding( \&plus , "+");
+$cui->set_binding( \&minus , "-");
 $cui->set_binding( sub{$textfield->backspace();$textfield->focus()}, ",");
 
 # OTHER
@@ -200,6 +203,8 @@ sub three()
 sub nine() 
 {
     if($mode eq "NORMAL"){
+        #$textfield->cursor_end(); #no such subrutine?
+        $textfield->focus();
     } elsif ($mode eq "INPUT"){
         $textfield->add_string("9");
         $textfield->focus();
@@ -210,8 +215,36 @@ sub nine()
 sub seven() 
 {
     if($mode eq "NORMAL"){
+        #$textfield->cursor_home(); #no such subrutine?
+        $textfield->focus();
     } elsif ($mode eq "INPUT"){
         $textfield->add_string("7");
+        $textfield->focus();
+        @buffor = split /(?<=\n)/, $textfield->get();
+    } elsif ($mode eq "MENU"){
+    }
+}
+sub plus() 
+{
+    if($mode eq "NORMAL"){
+    } elsif ($mode eq "INPUT"){
+    } elsif ($mode eq "MENU"){
+    }
+}
+sub minus() 
+{
+    if($mode eq "NORMAL"){
+        $textfield->undo();
+        $textfield->focus();
+    } elsif ($mode eq "INPUT"){
+    } elsif ($mode eq "MENU"){
+    }
+}
+sub five() 
+{
+    if($mode eq "NORMAL"){
+    } elsif ($mode eq "INPUT"){
+        $textfield->add_string("5");
         $textfield->focus();
         @buffor = split /(?<=\n)/, $textfield->get();
     } elsif ($mode eq "MENU"){
