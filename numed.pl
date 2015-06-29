@@ -19,11 +19,24 @@ use Data::Dumper;
 
 # ----------------------- VARIABLES SECTION --------------------------
 open my $file, "<", shift, or die "$!";
+open my $dict, "<", "dictionary", or die "$!";
 open my $debug, ">", "debug.out", or die "$!";
 
 my @buffor = <$file>;
 my $line = 0;
 my $mode = "NORMAL";
+my $t9queue = "";
+my @dictionary;
+my @current_suggestions;
+my $suggestion_iterator = 0;
+
+while(<$dict>){
+    for my $hue (split){
+        push @dictionary, $hue;
+    }
+}
+
+#say $debug Dumper(\@dictionary);
 
 # --------------------- USER INTERFACE SECTION -----------------------
 my $cui = new Curses::UI( 
@@ -56,7 +69,7 @@ my $win1 = $cui->add(
 
 my $indicator = $win1->add("indicator", "TextViewer",
     -text => "$mode",
-    -x => $win1->width()-10,
+    -x => $win1->width()-20,
     -bfg => 'white',
 );
 
@@ -64,25 +77,26 @@ my $textfield = $win1->add("textfield", "TextEditor",
     -text => join("", @buffor),
     -pad => 1,
     -border => 1,
-    #-padtop => 2,
 );
 
 # ----------------------- KEYBINDINGS SECTION --------------------------
 
 # KEYPAD
 $cui->set_binding( \&toggle_mode , "/");
-$cui->set_binding( \&up , "8");
-$cui->set_binding( \&down , "2");
-$cui->set_binding( \&left , "4");
-$cui->set_binding( \&right , "6");
-$cui->set_binding( \&one , "1");
-$cui->set_binding( \&three , "3");
-$cui->set_binding( \&seven , "7");
-$cui->set_binding( \&nine , "9");
-$cui->set_binding( \&five , "5");
-$cui->set_binding( \&plus , "+");
-$cui->set_binding( \&minus , "-");
-$cui->set_binding( sub{$textfield->backspace();$textfield->focus()}, ",");
+$cui->set_binding( \&one         , "1");
+$cui->set_binding( \&down        , "2");
+$cui->set_binding( \&three       , "3");
+$cui->set_binding( \&left        , "4");
+$cui->set_binding( \&five        , "5");
+$cui->set_binding( \&right       , "6");
+$cui->set_binding( \&seven       , "7");
+$cui->set_binding( \&up          , "8");
+$cui->set_binding( \&nine        , "9");
+$cui->set_binding( \&zero        , "0");
+$cui->set_binding( \&plus        , "+");
+$cui->set_binding( \&minus       , "-");
+$cui->set_binding( \&comma       , ",");
+$cui->set_binding( \&exit_dialog , "");
 
 # OTHER
 $cui->set_binding( sub{ $menu->focus() }, "\cX");
@@ -113,7 +127,7 @@ sub toggle_mode()
 
 sub update_indicator()
 {
-    $indicator->text($mode);
+    $indicator->text("$mode - $t9queue");
     $textfield->focus();
 }
 
@@ -123,9 +137,7 @@ sub up()
         $textfield->cursor_up();
         $textfield->focus();
     } elsif ($mode eq "INPUT"){
-        $textfield->add_string("8");
-        $textfield->focus();
-        @buffor = split /(?<=\n)/, $textfield->get();
+        t9input("8");
     } elsif ($mode eq "MENU"){
 
     }
@@ -137,9 +149,7 @@ sub down()
         $textfield->cursor_down();
         $textfield->focus();
     } elsif ($mode eq "INPUT"){
-        $textfield->add_string("2");
-        $textfield->focus();
-        @buffor = split /(?<=\n)/, $textfield->get();
+        t9input("2");
     } elsif ($mode eq "MENU"){
 
     }
@@ -151,9 +161,7 @@ sub left()
         $textfield->cursor_left();
         $textfield->focus();
     } elsif ($mode eq "INPUT"){
-        $textfield->add_string("4");
-        $textfield->focus();
-        @buffor = split /(?<=\n)/, $textfield->get();
+        t9input("4");
     } elsif ($mode eq "MENU"){
 
     }
@@ -165,9 +173,7 @@ sub right()
         $textfield->cursor_right();
         $textfield->focus();
     } elsif ($mode eq "INPUT"){
-        $textfield->add_string("6");
-        $textfield->focus();
-        @buffor = split /(?<=\n)/, $textfield->get();
+        t9input("6");
     } elsif ($mode eq "MENU"){
 
     }
@@ -179,9 +185,7 @@ sub one()
         $textfield->text(join("",@buffor[$line..$line+$textfield->height()]));
         $textfield->focus();
     } elsif ($mode eq "INPUT"){
-        $textfield->add_string("1");
-        $textfield->focus();
-        @buffor = split /(?<=\n)/, $textfield->get();
+        t9input("1");
     } elsif ($mode eq "MENU"){
 
     }
@@ -193,9 +197,7 @@ sub three()
         $textfield->text(join("",@buffor[$line..$line+$textfield->height()]));
         $textfield->focus();
     } elsif ($mode eq "INPUT"){
-        $textfield->add_string("3");
-        $textfield->focus();
-        @buffor = split /(?<=\n)/, $textfield->get();
+        t9input("3");
     } elsif ($mode eq "MENU"){
 
     }
@@ -206,9 +208,7 @@ sub nine()
         #$textfield->cursor_end(); #no such subrutine?
         $textfield->focus();
     } elsif ($mode eq "INPUT"){
-        $textfield->add_string("9");
-        $textfield->focus();
-        @buffor = split /(?<=\n)/, $textfield->get();
+        t9input("9");
     } elsif ($mode eq "MENU"){
     }
 }
@@ -218,9 +218,7 @@ sub seven()
         #$textfield->cursor_home(); #no such subrutine?
         $textfield->focus();
     } elsif ($mode eq "INPUT"){
-        $textfield->add_string("7");
-        $textfield->focus();
-        @buffor = split /(?<=\n)/, $textfield->get();
+        t9input("7");
     } elsif ($mode eq "MENU"){
     }
 }
@@ -228,6 +226,12 @@ sub plus()
 {
     if($mode eq "NORMAL"){
     } elsif ($mode eq "INPUT"){
+        if($suggestion_iterator+1 < @current_suggestions){ 
+            $suggestion_iterator++;
+        } else { 
+            $suggestion_iterator = 0;
+        }
+        t9input("");
     } elsif ($mode eq "MENU"){
     }
 }
@@ -237,6 +241,12 @@ sub minus()
         $textfield->undo();
         $textfield->focus();
     } elsif ($mode eq "INPUT"){
+        if($suggestion_iterator-1 > -@current_suggestions){ 
+            $suggestion_iterator--;
+        } else { 
+            $suggestion_iterator = 0;
+        }
+        t9input("");
     } elsif ($mode eq "MENU"){
     }
 }
@@ -244,11 +254,65 @@ sub five()
 {
     if($mode eq "NORMAL"){
     } elsif ($mode eq "INPUT"){
-        $textfield->add_string("5");
+        t9input("5");
+    } elsif ($mode eq "MENU"){
+    }
+}
+sub zero() 
+{
+    if($mode eq "NORMAL"){
+    } elsif ($mode eq "INPUT"){
+        $t9queue = "";
+        $textfield->add_string(" ");
         $textfield->focus();
         @buffor = split /(?<=\n)/, $textfield->get();
     } elsif ($mode eq "MENU"){
     }
+}
+sub comma()
+{
+    $textfield->backspace();
+    #pop $t9queue; #ERROR how to remove last char from string?
+    $t9queue = substr($t9queue, 0, -1); #hotfix cause no interents :( TODO
+    $suggestion_iterator = 0;
+    update_indicator();
+    $textfield->focus()
+}
+
+sub t9input()
+{
+    $textfield->backspace() for 1..length($t9queue);
+    $t9queue .= shift;
+    update_indicator();
+    say $debug $t9queue;
+    @current_suggestions = t9_find_words($t9queue,\@dictionary);
+    say $debug Dumper(\@current_suggestions);
+    if (@current_suggestions) {
+        #buggy for 263? FIXME
+        $textfield->add_string($current_suggestions[$suggestion_iterator]);
+    } else {
+        $textfield->add_string($t9queue);
+    }
+    $textfield->focus();
+    @buffor = split /(?<=\n)/, $textfield->get();
+}
+
+our @T9NL = ( '', '', 'ABC', 'DEF', 'GHI', 'JKL', 'MNO', 'PQRS', 'TUV', 'WXYZ' );
+sub t9_find_words($$)
+{
+    my $num = shift;
+    my $words = shift;
+
+    return () unless $num =~ /^[2-9]+$/;
+
+    my $len = length( $num );
+    my $re;
+    for( 0 .. $len - 1 )
+    {
+       $re .= "[" . $T9NL[substr( $num, $_, 1 )] . "]";
+    }
+    $re = "^$re\$";
+    return grep { /$re/i } grep { length( $_ ) == $len } @$words;
 }
 
 # -------------------- START MAIN LOOP --------------------------
